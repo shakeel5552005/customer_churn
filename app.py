@@ -257,7 +257,199 @@ def engineer_features(df_clean):
     df["Complaint_Rate"] = df["Complaints"] / np.maximum(df["Tenure_Months"], 1)
 
     return df
-
+#------------------------------
+def show_training_animation():
+    """Beautiful loading animation while models train."""
+    placeholder = st.empty()
+    
+    placeholder.markdown("""
+    <style>
+    @keyframes pulse-brain {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.15); opacity: 0.8; }
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    @keyframes dot-bounce {
+        0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+        40% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    @keyframes progress-fill {
+        0% { width: 0%; }
+        30% { width: 35%; }
+        60% { width: 70%; }
+        90% { width: 92%; }
+        100% { width: 100%; }
+    }
+    
+    .training-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e1b4b 100%);
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+    }
+    .training-box {
+        background: rgba(255,255,255,0.05);
+        backdrop-filter: blur(20px);
+        border: 2px solid rgba(102,126,234,0.3);
+        border-radius: 30px;
+        padding: 60px 80px;
+        text-align: center;
+        max-width: 600px;
+        box-shadow: 0 20px 60px rgba(102,126,234,0.3);
+    }
+    .brain-icon {
+        font-size: 5rem;
+        animation: pulse-brain 1.5s ease-in-out infinite;
+        display: inline-block;
+        margin-bottom: 20px;
+    }
+    .spinner-ring {
+        width: 80px;
+        height: 80px;
+        border: 5px solid rgba(102,126,234,0.2);
+        border-top: 5px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+    .training-title {
+        color: #ffffff;
+        font-size: 2rem;
+        font-weight: 800;
+        margin: 20px 0 10px 0;
+        letter-spacing: -0.5px;
+    }
+    .training-subtitle {
+        color: #cbd5e1;
+        font-size: 1rem;
+        margin-bottom: 30px;
+        font-weight: 400;
+    }
+    .dots {
+        display: inline-flex;
+        gap: 6px;
+        margin-left: 6px;
+    }
+    .dots span {
+        width: 8px;
+        height: 8px;
+        background: #667eea;
+        border-radius: 50%;
+        display: inline-block;
+        animation: dot-bounce 1.4s ease-in-out infinite;
+    }
+    .dots span:nth-child(1) { animation-delay: 0s; }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+    
+    .progress-container {
+        width: 100%;
+        height: 8px;
+        background: rgba(102,126,234,0.2);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 25px 0 20px 0;
+    }
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+        background-size: 200% 100%;
+        border-radius: 10px;
+        animation: progress-fill 8s ease-out forwards, shimmer 2s linear infinite;
+    }
+    
+    .steps-list {
+        text-align: left;
+        margin-top: 25px;
+        color: #94a3b8;
+        font-size: 0.9rem;
+    }
+    .steps-list .step {
+        padding: 8px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .steps-list .step.active { color: #667eea; font-weight: 600; }
+    .steps-list .step.done { color: #10b981; }
+    .step-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgba(102,126,234,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+    .step.active .step-icon {
+        background: #667eea;
+        animation: pulse-brain 1s ease-in-out infinite;
+    }
+    .step.done .step-icon {
+        background: #10b981;
+        color: white;
+    }
+    </style>
+    
+    <div class="training-overlay">
+        <div class="training-box">
+            <div class="brain-icon">🤖</div>
+            <div class="spinner-ring"></div>
+            <div class="training-title">
+                Training Models
+                <span class="dots">
+                    <span></span><span></span><span></span>
+                </span>
+            </div>
+            <div class="training-subtitle">
+                Please wait while we train 5 ML models. This happens only once.
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar"></div>
+            </div>
+            
+            <div class="steps-list">
+                <div class="step active">
+                    <div class="step-icon">⏳</div>
+                    <span>Logistic Regression</span>
+                </div>
+                <div class="step active">
+                    <div class="step-icon">⏳</div>
+                    <span>K-Nearest Neighbors</span>
+                </div>
+                <div class="step active">
+                    <div class="step-icon">⏳</div>
+                    <span>Decision Tree</span>
+                </div>
+                <div class="step active">
+                    <div class="step-icon">⏳</div>
+                    <span>Random Forest</span>
+                </div>
+                <div class="step active">
+                    <div class="step-icon">⏳</div>
+                    <span>Gradient Boosting</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    return placeholder
+#------------------------------
 
 # ============================================================
 # STEP 4: TRAIN MODELS
