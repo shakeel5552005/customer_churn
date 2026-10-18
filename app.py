@@ -1,5 +1,6 @@
 """
 CUSTOMER CHURN PREDICTION & RETENTION ANALYTICS SYSTEM
+Optimized for Streamlit Cloud / Hugging Face Spaces
 """
 
 import streamlit as st
@@ -23,6 +24,9 @@ warnings.filterwarnings("ignore")
 st.set_page_config(page_title="Churn Analytics", page_icon="📊",
                    layout="wide", initial_sidebar_state="expanded")
 
+# ============================================================
+# PREMIUM CSS
+# ============================================================
 st.markdown("""
 <style>
 .stApp { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf3 100%); }
@@ -65,7 +69,11 @@ section[data-testid="stSidebar"] * { color:#e2e8f0; }
 """, unsafe_allow_html=True)
 
 
-def generate_raw_dataset(n=2000, seed=42):
+# ============================================================
+# STEP 0: RAW DATA GENERATOR
+# ============================================================
+def generate_raw_dataset(n=1200, seed=42):
+    """Fast raw dataset (1200 rows) with intentional issues for cleaning demo."""
     np.random.seed(seed)
     regions   = ["North","South","East","West","Central"]
     segments  = ["Basic","Standard","Premium","Enterprise"]
@@ -136,6 +144,9 @@ def generate_raw_dataset(n=2000, seed=42):
     return df
 
 
+# ============================================================
+# STEP 1: DATA LOADING (cached)
+# ============================================================
 @st.cache_data(show_spinner="📥 Loading raw dataset...")
 def load_raw_data():
     for p in ["data/customer_churn.csv", "customer_churn.csv"]:
@@ -144,6 +155,9 @@ def load_raw_data():
     return generate_raw_dataset(), "Synthetic (generated)"
 
 
+# ============================================================
+# STEP 2: DATA CLEANING (cached)
+# ============================================================
 @st.cache_data(show_spinner="🧹 Cleaning data...")
 def clean_data(raw):
     df = raw.copy()
@@ -199,6 +213,9 @@ def clean_data(raw):
     return df, report
 
 
+# ============================================================
+# STEP 3: FEATURE ENGINEERING (cached)
+# ============================================================
 @st.cache_data(show_spinner="⚙️ Engineering features...")
 def engineer_features(df_clean):
     df = df_clean.copy()
@@ -243,6 +260,9 @@ def engineer_features(df_clean):
     return df
 
 
+# ============================================================
+# STEP 4: TRAIN MODELS (cached — lightweight)
+# ============================================================
 FEATURES = [
     "Customer_Gender","Customer_Age","Region","Customer_Segment",
     "Subscription_Type","Contract_Type","Tenure_Months","Monthly_Charges",
@@ -268,16 +288,16 @@ def train_models(df_clean):
         X, y, test_size=0.25, random_state=42, stratify=y)
 
     scaler = StandardScaler()
-    X_tr_s = scaler.fit_transform(X_tr)
-    X_te_s = scaler.transform(X_te)
+    X_tr_s = scaler.fit_transform(X_tr).astype(np.float32)
+    X_te_s = scaler.transform(X_te).astype(np.float32)
 
     models = {
-        "Logistic Regression": (LogisticRegression(max_iter=3000, class_weight="balanced"), True),
+        "Logistic Regression": (LogisticRegression(max_iter=1000, class_weight="balanced"), True),
         "K-Nearest Neighbors": (KNeighborsClassifier(n_neighbors=9), True),
-        "Decision Tree":       (DecisionTreeClassifier(max_depth=8, class_weight="balanced", random_state=42), False),
-        "Random Forest":       (RandomForestClassifier(n_estimators=300, max_depth=12,
+        "Decision Tree":       (DecisionTreeClassifier(max_depth=6, class_weight="balanced", random_state=42), False),
+        "Random Forest":       (RandomForestClassifier(n_estimators=100, max_depth=10,
                                                        class_weight="balanced", random_state=42, n_jobs=-1), False),
-        "Gradient Boosting":   (GradientBoostingClassifier(n_estimators=200, random_state=42), False),
+        "Gradient Boosting":   (GradientBoostingClassifier(n_estimators=80, random_state=42), False),
     }
 
     results = {}
@@ -329,11 +349,18 @@ def kpi(label, value, color="#667eea", delta=None):
         {f'<div class="kpi-delta">{delta}</div>' if delta else ''}</div>"""
 
 
+# ============================================================
+# RUN PIPELINE — STRICT ORDER
+# ============================================================
 raw_df, source = load_raw_data()
 clean_df, clean_report = clean_data(raw_df)
 df = engineer_features(clean_df)
 pipeline = train_models(clean_df)
 
+
+# ============================================================
+# SIDEBAR NAVIGATION
+# ============================================================
 with st.sidebar:
     st.markdown("""
     <div style='text-align:center;padding:8px 0 18px;'>
@@ -366,7 +393,9 @@ with st.sidebar:
     </div>""", unsafe_allow_html=True)
 
 
+# ============================================================
 # PAGE 1: HOME
+# ============================================================
 if page == "🏠 Home":
     st.markdown('<div class="main-header"><h1>🎯 Customer Churn Prediction & Retention Analytics</h1>'
                 '<p>End-to-end ML platform — Clean → Engineer → Analyze → Predict → Retain</p></div>',
@@ -431,7 +460,9 @@ if page == "🏠 Home":
                      hide_index=True, height=300)
 
 
+# ============================================================
 # PAGE 2: DATA CLEANING REPORT
+# ============================================================
 elif page == "🧹 Data Cleaning Report":
     st.markdown('<div class="main-header"><h1>🧹 Data Cleaning Report</h1>'
                 '<p>All cleaning steps performed before analysis & modeling</p></div>',
@@ -490,7 +521,9 @@ elif page == "🧹 Data Cleaning Report":
     st.dataframe(df.head(50), use_container_width=True, height=400)
 
 
+# ============================================================
 # PAGE 3: CUSTOMER EXPLORER
+# ============================================================
 elif page == "🔍 Customer Explorer":
     st.markdown('<div class="main-header"><h1>🔍 Customer Explorer</h1>'
                 '<p>Filter, segment, and export records</p></div>', unsafe_allow_html=True)
@@ -538,7 +571,9 @@ elif page == "🔍 Customer Explorer":
                        use_container_width=True)
 
 
+# ============================================================
 # PAGE 4: CHURN DASHBOARD
+# ============================================================
 elif page == "📊 Churn Dashboard":
     st.markdown('<div class="main-header"><h1>📊 Churn Dashboard</h1>'
                 '<p>Executive KPIs & revenue impact</p></div>', unsafe_allow_html=True)
@@ -554,476 +589,4 @@ elif page == "📊 Churn Dashboard":
 
     r2 = st.columns(3)
     r2[0].markdown(kpi("Churn Rate", f"{churned/total*100:.1f}%", "#ef4444"), unsafe_allow_html=True)
-    r2[1].markdown(kpi("Avg Monthly Charge", f"${df['Monthly_Charges'].mean():.2f}", "#667eea"), unsafe_allow_html=True)
-    r2[2].markdown(kpi("Avg Tenure", f"{df['Tenure_Months'].mean():.0f} mo", "#667eea"), unsafe_allow_html=True)
-
-    r3 = st.columns(3)
-    r3[0].markdown(kpi("Avg Satisfaction", f"{df['Satisfaction_Score'].mean():.1f}/10", "#10b981"), unsafe_allow_html=True)
-    r3[1].markdown(kpi("Total Monthly Revenue", f"${tot_rev:,.0f}", "#10b981"), unsafe_allow_html=True)
-    r3[2].markdown(kpi("Churned Revenue", f"${churn_rev:,.0f}", "#ef4444",
-                       f"{churn_rev/tot_rev*100:.1f}% of total"), unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    a,b = st.columns(2)
-    with a:
-        st.markdown('<div class="section-title">Churn Distribution</div>', unsafe_allow_html=True)
-        fig = px.pie(values=[active,churned], names=["Active","Churned"], hole=0.6,
-                     color_discrete_sequence=["#10b981","#ef4444"])
-        fig.update_layout(height=330, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
-    with b:
-        st.markdown('<div class="section-title">Revenue Impact</div>', unsafe_allow_html=True)
-        fig = go.Figure(go.Bar(
-            x=["Retained","Churned"], y=[tot_rev-churn_rev, churn_rev],
-            marker_color=["#10b981","#ef4444"], text=[f"${tot_rev-churn_rev:,.0f}", f"${churn_rev:,.0f}"],
-            textposition="outside"))
-        fig.update_layout(height=330, margin=dict(t=10,b=10), yaxis_title="Monthly Revenue ($)")
-        st.plotly_chart(fig, use_container_width=True)
-
-
-# PAGE 5: CHURN ANALYSIS
-elif page == "📈 Churn Analysis":
-    st.markdown('<div class="main-header"><h1>📈 Churn Analysis</h1>'
-                '<p>All churn drivers & 15+ visualizations</p></div>', unsafe_allow_html=True)
-
-    tabs = st.tabs(["📊 Categorical Drivers","📉 Numeric Drivers","🔥 Correlation","💡 Insights"])
-
-    with tabs[0]:
-        def bar_by(col,title):
-            g = df.groupby(col)["Churn_Flag"].mean().mul(100).reset_index()
-            g.columns=[col,"Churn %"]
-            fig = px.bar(g.sort_values("Churn %", ascending=False),
-                         x=col, y="Churn %", color="Churn %",
-                         color_continuous_scale="Reds", text="Churn %")
-            fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-            fig.update_layout(title=title, height=360, margin=dict(t=50,b=10),
-                              coloraxis_showscale=False)
-            return fig
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(bar_by("Contract_Type","Churn by Contract"), use_container_width=True)
-        c2.plotly_chart(bar_by("Subscription_Type","Churn by Subscription"), use_container_width=True)
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(bar_by("Payment_Method","Churn by Payment"), use_container_width=True)
-        c2.plotly_chart(bar_by("Auto_Pay","Churn by Auto-Pay"), use_container_width=True)
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(bar_by("Customer_Segment","Churn by Segment"), use_container_width=True)
-        c2.plotly_chart(bar_by("Region","Churn by Region"), use_container_width=True)
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(bar_by("Internet_Service","Churn by Internet"), use_container_width=True)
-        c2.plotly_chart(bar_by("Tenure_Group","Churn by Tenure Group"), use_container_width=True)
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(bar_by("Satisfaction_Category","Churn by Satisfaction"), use_container_width=True)
-        c2.plotly_chart(bar_by("Support_Issue_Level","Churn by Support Issues"), use_container_width=True)
-
-    with tabs[1]:
-        def hist_by(col,title):
-            fig = px.histogram(df, x=col, color="Churned", nbins=30, barmode="overlay",
-                               color_discrete_map={"Yes":"#ef4444","No":"#10b981"}, opacity=0.75)
-            fig.update_layout(title=title, height=350, margin=dict(t=50,b=10))
-            return fig
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(hist_by("Monthly_Charges","Monthly Charges vs Churn"), use_container_width=True)
-        c2.plotly_chart(hist_by("Tenure_Months","Tenure vs Churn"), use_container_width=True)
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(hist_by("Satisfaction_Score","Satisfaction vs Churn"), use_container_width=True)
-        c2.plotly_chart(hist_by("NPS_Score","NPS vs Churn"), use_container_width=True)
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(hist_by("Support_Tickets","Support Tickets vs Churn"), use_container_width=True)
-        c2.plotly_chart(hist_by("Late_Payments","Late Payments vs Churn"), use_container_width=True)
-        c1,c2 = st.columns(2)
-        c1.plotly_chart(hist_by("Complaints","Complaints vs Churn"), use_container_width=True)
-        c2.plotly_chart(hist_by("Referral_Count","Referrals vs Churn"), use_container_width=True)
-
-    with tabs[2]:
-        st.markdown('<div class="section-title">Correlation Heatmap (Numeric)</div>', unsafe_allow_html=True)
-        num = df.select_dtypes(include=np.number)
-        corr = num.corr()
-        fig = px.imshow(corr, text_auto=".2f", aspect="auto",
-                        color_continuous_scale="RdBu_r", zmin=-1, zmax=1)
-        fig.update_layout(height=680, margin=dict(t=20,b=10))
-        st.plotly_chart(fig, use_container_width=True)
-
-    with tabs[3]:
-        st.markdown('<div class="section-title">💡 Key Business Insights</div>', unsafe_allow_html=True)
-
-        churn_rate = df["Churn_Flag"].mean()*100
-        mtm = df[df["Contract_Type"]=="Month-to-month"]["Churn_Flag"].mean()*100
-        autopay_yes = df[df["Auto_Pay"]=="Yes"]["Churn_Flag"].mean()*100
-        autopay_no  = df[df["Auto_Pay"]=="No"]["Churn_Flag"].mean()*100
-        low_sat = df[df["Satisfaction_Score"]<=4]["Churn_Flag"].mean()*100
-        high_sat= df[df["Satisfaction_Score"]>=8]["Churn_Flag"].mean()*100
-        comp_yes= df[df["Complaints"]>0]["Churn_Flag"].mean()*100
-        comp_no = df[df["Complaints"]==0]["Churn_Flag"].mean()*100
-
-        insights = [
-            ("Overall Churn Rate", f"{churn_rate:.1f}%"),
-            ("Month-to-month contract churn", f"{mtm:.1f}%"),
-            ("Auto-pay = Yes churn", f"{autopay_yes:.1f}%"),
-            ("Auto-pay = No churn", f"{autopay_no:.1f}%"),
-            ("Low satisfaction (≤4) churn", f"{low_sat:.1f}%"),
-            ("High satisfaction (≥8) churn", f"{high_sat:.1f}%"),
-            ("Complaint = Yes churn", f"{comp_yes:.1f}%"),
-            ("Complaint = No churn", f"{comp_no:.1f}%"),
-            ("Monthly revenue from churned", f"${df[df['Churn_Flag']==1]['Monthly_Charges'].sum():,.0f}"),
-        ]
-        st.dataframe(pd.DataFrame(insights, columns=["Metric","Value"]),
-                     use_container_width=True, hide_index=True)
-
-
-# PAGE 6: MODEL COMPARISON
-elif page == "🤖 Model Comparison":
-    st.markdown('<div class="main-header"><h1>🤖 Model Comparison</h1>'
-                '<p>5 models evaluated — F1 & Recall prioritized (not just accuracy)</p></div>',
-                unsafe_allow_html=True)
-
-    rows = []
-    for name,r in pipeline["results"].items():
-        rows.append({"Model":name, "Accuracy":r["accuracy"], "Precision":r["precision"],
-                     "Recall":r["recall"], "F1":r["f1"], "ROC-AUC":r["roc_auc"]})
-    tbl = pd.DataFrame(rows).sort_values("F1", ascending=False).reset_index(drop=True)
-    tbl_styled = tbl.style.format({c:"{:.3f}" for c in tbl.columns if c!="Model"}).highlight_max(
-        subset=["F1","Recall","ROC-AUC"], color="#d1fae5")
-    st.dataframe(tbl_styled, use_container_width=True, hide_index=True)
-
-    st.markdown(f"""
-    <div style="background:#eff6ff; border-left:4px solid #3b82f6; padding:16px 20px;
-                border-radius:10px; margin:12px 0; color:#1e40af;">
-    <b>🏆 Selected Best Model:</b> <b>{pipeline['best_name']}</b><br>
-    Chosen using a composite score of <b>40% F1 + 40% Recall + 20% ROC-AUC</b> — 
-    NOT accuracy alone. In churn, <b>recall matters most</b> because missing an at-risk 
-    customer (false negative) means <b>losing revenue permanently</b>, while a false positive 
-    only costs a retention offer.
-    </div>""", unsafe_allow_html=True)
-
-    st.markdown('<div class="section-title">📊 Model Metrics Comparison</div>', unsafe_allow_html=True)
-    melted = tbl.melt(id_vars="Model", var_name="Metric", value_name="Score")
-    fig = px.bar(melted, x="Model", y="Score", color="Metric", barmode="group",
-                 color_discrete_sequence=px.colors.qualitative.Set2)
-    fig.update_layout(height=400, margin=dict(t=20,b=10), yaxis_range=[0,1.05])
-    st.plotly_chart(fig, use_container_width=True)
-
-    sel = st.selectbox("🔎 Inspect model:", list(pipeline["results"].keys()),
-                       index=list(pipeline["results"].keys()).index(pipeline["best_name"]))
-    r = pipeline["results"][sel]
-
-    c1,c2 = st.columns([1,1.3])
-    with c1:
-        st.markdown(f'<div class="section-title">Confusion Matrix — {sel}</div>', unsafe_allow_html=True)
-        cm = r["cm"]
-        fig = px.imshow(cm, text_auto=True, aspect="auto",
-                        x=["Pred Active","Pred Churn"], y=["Actual Active","Actual Churn"],
-                        color_continuous_scale="Blues")
-        fig.update_layout(height=350, margin=dict(t=20,b=10))
-        st.plotly_chart(fig, use_container_width=True)
-    with c2:
-        st.markdown(f'<div class="section-title">Classification Report — {sel}</div>', unsafe_allow_html=True)
-        rep = pd.DataFrame(r["report"]).T
-        st.dataframe(rep.style.format("{:.3f}"), use_container_width=True)
-
-    c1,c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="section-title">ROC Curves</div>', unsafe_allow_html=True)
-        fig = go.Figure()
-        for name,rr in pipeline["results"].items():
-            fpr,tpr,_ = roc_curve(pipeline["y_test"], rr["y_proba"])
-            fig.add_trace(go.Scatter(x=fpr,y=tpr,mode="lines",
-                                     name=f"{name} (AUC={rr['roc_auc']:.3f})"))
-        fig.add_trace(go.Scatter(x=[0,1],y=[0,1],mode="lines",name="Random",
-                                 line=dict(dash="dash",color="gray")))
-        fig.update_layout(height=420, xaxis_title="FPR", yaxis_title="TPR",
-                          margin=dict(t=20,b=10), legend=dict(font=dict(size=10)))
-        st.plotly_chart(fig, use_container_width=True)
-    with c2:
-        st.markdown('<div class="section-title">Precision-Recall Curves</div>', unsafe_allow_html=True)
-        fig = go.Figure()
-        for name,rr in pipeline["results"].items():
-            p,rc,_ = precision_recall_curve(pipeline["y_test"], rr["y_proba"])
-            fig.add_trace(go.Scatter(x=rc,y=p,mode="lines",name=f"{name} (AUC={auc(rc,p):.3f})"))
-        fig.update_layout(height=420, xaxis_title="Recall", yaxis_title="Precision",
-                          margin=dict(t=20,b=10), legend=dict(font=dict(size=10)))
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown('<div class="section-title">🎯 Feature Importance</div>', unsafe_allow_html=True)
-    imp_model_name = "Random Forest" if "Random Forest" in pipeline["results"] else "Decision Tree"
-    imp_model = pipeline["results"][imp_model_name]["model"]
-    if hasattr(imp_model, "feature_importances_"):
-        imp = pd.DataFrame({"Feature": pipeline["feature_cols"],
-                            "Importance": imp_model.feature_importances_}).sort_values(
-                            "Importance", ascending=True).tail(15)
-        fig = px.bar(imp, x="Importance", y="Feature", orientation="h",
-                     color="Importance", color_continuous_scale="Viridis")
-        fig.update_layout(height=500, margin=dict(t=20,b=10), coloraxis_showscale=False)
-        st.plotly_chart(fig, use_container_width=True)
-
-
-# PAGE 7: THRESHOLD ANALYSIS
-elif page == "🎚️ Threshold Analysis":
-    st.markdown('<div class="main-header"><h1>🎚️ Threshold Analysis</h1>'
-                '<p>Adjust decision threshold to balance precision & recall</p></div>',
-                unsafe_allow_html=True)
-
-    sel = st.selectbox("Model to analyze:", list(pipeline["results"].keys()),
-                       index=list(pipeline["results"].keys()).index(pipeline["best_name"]))
-    r = pipeline["results"][sel]
-    th = st.slider("Decision threshold", 0.0, 1.0, 0.50, 0.01)
-
-    y_true = pipeline["y_test"]; y_prob = r["y_proba"]
-    y_pred = (y_prob >= th).astype(int)
-
-    tn,fp,fn,tp = confusion_matrix(y_true, y_pred, labels=[0,1]).ravel()
-    prec = precision_score(y_true, y_pred, zero_division=0)
-    rec  = recall_score(y_true, y_pred, zero_division=0)
-    f1   = f1_score(y_true, y_pred, zero_division=0)
-
-    c = st.columns(5)
-    c[0].markdown(kpi("Precision", f"{prec:.3f}"), unsafe_allow_html=True)
-    c[1].markdown(kpi("Recall", f"{rec:.3f}", "#10b981"), unsafe_allow_html=True)
-    c[2].markdown(kpi("F1-Score", f"{f1:.3f}", "#667eea"), unsafe_allow_html=True)
-    c[3].markdown(kpi("False Positives", f"{fp}", "#f59e0b"), unsafe_allow_html=True)
-    c[4].markdown(kpi("False Negatives", f"{fn}", "#ef4444"), unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    c1,c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="section-title">Threshold vs Metrics</div>', unsafe_allow_html=True)
-        ths = np.arange(0.05, 0.96, 0.02)
-        rows=[]
-        for t in ths:
-            yp = (y_prob>=t).astype(int)
-            rows.append({"Threshold":t,
-                         "Precision":precision_score(y_true,yp,zero_division=0),
-                         "Recall":recall_score(y_true,yp,zero_division=0),
-                         "F1":f1_score(y_true,yp,zero_division=0)})
-        mdf = pd.DataFrame(rows).melt(id_vars="Threshold",var_name="Metric",value_name="Value")
-        fig = px.line(mdf, x="Threshold", y="Value", color="Metric",
-                      color_discrete_sequence=["#3b82f6","#10b981","#f59e0b"])
-        fig.add_vline(x=th, line_dash="dash", line_color="red")
-        fig.update_layout(height=380, margin=dict(t=20,b=10))
-        st.plotly_chart(fig, use_container_width=True)
-    with c2:
-        st.markdown('<div class="section-title">Confusion Matrix @ Current Threshold</div>', unsafe_allow_html=True)
-        cm = np.array([[tn,fp],[fn,tp]])
-        fig = px.imshow(cm, text_auto=True, aspect="auto",
-                        x=["Pred Active","Pred Churn"], y=["Actual Active","Actual Churn"],
-                        color_continuous_scale="Blues")
-        fig.update_layout(height=380, margin=dict(t=20,b=10))
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("""
-    <div style="background:#eff6ff; border-left:4px solid #3b82f6; padding:16px 20px;
-                border-radius:10px; margin:12px 0; color:#1e40af;">
-    <b>💡 Business Guidance:</b> Lower threshold (e.g. <b>0.35</b>) → catches more at-risk 
-    customers (↑ recall) at the cost of more false alarms (↓ precision). For churn, err on 
-    the side of <b>lower thresholds</b> — losing a customer costs more than a wasted retention offer.
-    </div>""", unsafe_allow_html=True)
-
-
-# PAGE 8: CHURN PREDICTION
-elif page == "🔮 Churn Prediction":
-    st.markdown('<div class="main-header"><h1>🔮 Churn Prediction</h1>'
-                '<p>Score any customer & get a retention recommendation</p></div>',
-                unsafe_allow_html=True)
-
-    with st.form("predict_form"):
-        c1,c2,c3 = st.columns(3)
-        with c1:
-            gender   = st.selectbox("Gender", ["Male","Female"])
-            age      = st.slider("Age", 18, 75, 35)
-            region   = st.selectbox("Region", sorted(df["Region"].unique()))
-            segment  = st.selectbox("Segment", sorted(df["Customer_Segment"].unique()))
-            sub      = st.selectbox("Subscription", sorted(df["Subscription_Type"].unique()))
-            contract = st.selectbox("Contract", sorted(df["Contract_Type"].unique()))
-            tenure   = st.slider("Tenure (months)", 1, 72, 12)
-        with c2:
-            monthly  = st.number_input("Monthly Charges ($)", 20.0, 200.0, 70.0)
-            payment  = st.selectbox("Payment", sorted(df["Payment_Method"].unique()))
-            autopay  = st.selectbox("Auto-Pay", ["Yes","No"])
-            internet = st.selectbox("Internet Service", sorted(df["Internet_Service"].unique()))
-            devices  = st.slider("Device Count", 1, 6, 2)
-            usage    = st.slider("Avg Monthly Usage (GB)", 1.0, 200.0, 60.0)
-        with c3:
-            tickets  = st.slider("Support Tickets", 0, 10, 1)
-            complaints = st.slider("Complaints", 0, 10, 0)
-            late     = st.slider("Late Payments", 0, 10, 0)
-            interact = st.slider("Last Interaction (days ago)", 1, 180, 30)
-            sat      = st.slider("Satisfaction (1-10)", 1, 10, 7)
-            nps      = st.slider("NPS (0-10)", 0, 10, 7)
-            discount = st.selectbox("Discount %", [0,5,10,15,20])
-            referrals= st.slider("Referrals", 0, 10, 0)
-
-        submitted = st.form_submit_button("🔮 Predict Churn", use_container_width=True, type="primary")
-
-    if submitted:
-        rec = {
-            "Customer_Gender":gender, "Customer_Age":age, "Region":region,
-            "Customer_Segment":segment, "Subscription_Type":sub, "Contract_Type":contract,
-            "Tenure_Months":tenure, "Monthly_Charges":monthly, "Payment_Method":payment,
-            "Auto_Pay":autopay, "Internet_Service":internet, "Device_Count":devices,
-            "Avg_Monthly_Usage_GB":usage, "Support_Tickets":tickets, "Complaints":complaints,
-            "Late_Payments":late, "Last_Interaction_Days":interact,
-            "Satisfaction_Score":sat, "NPS_Score":nps,
-            "Discount_Percent":discount, "Referral_Count":referrals,
-        }
-        prob = predict_one(pipeline, rec)
-        pred = "Churn" if prob >= 0.5 else "Retain"
-
-        if prob < 0.25: risk,cls = "Low Risk","risk-low"
-        elif prob < 0.5: risk,cls = "Medium Risk","risk-medium"
-        elif prob < 0.75: risk,cls = "High Risk","risk-high"
-        else: risk,cls = "Critical Risk","risk-critical"
-
-        c1,c2,c3 = st.columns(3)
-        c1.markdown(kpi("Churn Probability", f"{prob*100:.1f}%",
-                        "#ef4444" if prob>0.5 else "#10b981"), unsafe_allow_html=True)
-        c2.markdown(kpi("Prediction", pred), unsafe_allow_html=True)
-        c3.markdown(f"""<div class="kpi-card">
-            <div class="kpi-label">Risk Level</div>
-            <div style="margin-top:8px;"><span class="{cls}">{risk}</span></div></div>""",
-            unsafe_allow_html=True)
-
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number", value=prob*100,
-            title={"text":"Churn Risk Score"},
-            gauge={"axis":{"range":[0,100]},
-                   "bar":{"color":"#ef4444" if prob>0.5 else "#10b981"},
-                   "steps":[{"range":[0,25],"color":"#d1fae5"},
-                            {"range":[25,50],"color":"#fef3c7"},
-                            {"range":[50,75],"color":"#fed7aa"},
-                            {"range":[75,100],"color":"#fecaca"}]}))
-        fig.update_layout(height=280, margin=dict(t=40,b=10))
-        st.plotly_chart(fig, use_container_width=True)
-
-        st.markdown('<div class="section-title">🚩 Main Risk Indicators</div>', unsafe_allow_html=True)
-        indicators = []
-        if contract == "Month-to-month": indicators.append("📅 Month-to-month contract (no lock-in)")
-        if sat <= 4: indicators.append(f"😞 Low satisfaction ({sat}/10)")
-        if complaints >= 2: indicators.append(f"⚠️ Multiple complaints ({complaints})")
-        if late >= 2: indicators.append(f"💰 {late} late payments")
-        if autopay == "No": indicators.append("💳 No auto-pay enrolled")
-        if tickets >= 3: indicators.append(f"🎫 High support tickets ({tickets})")
-        if nps <= 4: indicators.append(f"📉 Low NPS ({nps})")
-        if interact > 90: indicators.append(f"😴 Inactive ({interact} days)")
-        if monthly > 100: indicators.append(f"💵 High monthly charge (${monthly})")
-        if tenure < 6: indicators.append(f"🆕 New customer ({tenure} months)")
-        if usage < 20: indicators.append(f"📉 Low engagement ({usage} GB/mo)")
-        if referrals == 0: indicators.append("🙅 No referrals")
-
-        if indicators:
-            for i in indicators: st.markdown(f"- {i}")
-        else:
-            st.success("✅ No major risk factors detected.")
-
-        st.markdown('<div class="section-title">🎯 Suggested Retention Actions</div>', unsafe_allow_html=True)
-        actions = []
-        if contract == "Month-to-month": actions.append(("📅 Offer annual contract discount", "10-20% discount for 1-year lock-in"))
-        if monthly > 100: actions.append(("💵 Offer lower-cost plan", "Right-size the plan to usage"))
-        if sat <= 4: actions.append(("🤝 Assign customer success manager", "Personal outreach"))
-        if complaints >= 2: actions.append(("🚨 Escalate complaint", "Priority resolution"))
-        if late >= 2 or autopay == "No": actions.append(("💳 Recommend auto-pay", "5% auto-pay discount"))
-        if usage < 20: actions.append(("📣 Re-engagement campaign", "Feature education"))
-        if nps <= 4: actions.append(("📞 Feedback call", "Understand & fix issues"))
-        if referrals == 0: actions.append(("🎁 Referral incentive", "Loyalty reward"))
-
-        if not actions: actions.append(("✅ Maintain engagement", "Standard care is sufficient"))
-        for a,d in actions:
-            st.markdown(f'<div class="rec-card"><b>{a}</b><br>'
-                        f'<span style="color:#6b7280;">{d}</span></div>',
-                        unsafe_allow_html=True)
-
-
-# PAGE 9: RETENTION DASHBOARD
-elif page == "🎯 Retention Dashboard":
-    st.markdown('<div class="main-header"><h1>🎯 Retention Dashboard</h1>'
-                '<p>High-risk customers, revenue at risk & campaigns</p></div>',
-                unsafe_allow_html=True)
-
-    @st.cache_data(show_spinner="Scoring all customers...")
-    def score_all(df_clean, pipeline_hash):
-        X = df_clean[FEATURES].copy()
-        for c in pipeline["cat_cols"]:
-            le = pipeline["encoders"][c]
-            X[c] = X[c].astype(str).apply(lambda v: v if v in le.classes_ else le.classes_[0])
-            X[c] = le.transform(X[c])
-        m = pipeline["results"][pipeline["best_name"]]["model"]
-        if pipeline["results"][pipeline["best_name"]]["uses_scaler"]:
-            p = m.predict_proba(pipeline["scaler"].transform(X))[:,1]
-        else:
-            p = m.predict_proba(X.values)[:,1]
-        return p
-
-    df_s = df.copy()
-    df_s["Churn_Probability"] = score_all(clean_df, pipeline["best_name"])
-    df_s["Risk_Level"] = pd.cut(df_s["Churn_Probability"],
-        bins=[-1,0.25,0.5,0.75,1.01],
-        labels=["Low","Medium","High","Critical"]).astype(str)
-
-    high = df_s[df_s["Risk_Level"].isin(["High","Critical"])]
-    rev_at_risk = high["Monthly_Charges"].sum()
-
-    c1,c2,c3,c4 = st.columns(4)
-    c1.markdown(kpi("High-Risk Customers", f"{len(high):,}", "#ef4444"), unsafe_allow_html=True)
-    c2.markdown(kpi("Revenue at Risk", f"${rev_at_risk:,.0f}/mo", "#f59e0b"), unsafe_allow_html=True)
-    c3.markdown(kpi("Critical Risk", f"{(df_s['Risk_Level']=='Critical').sum()}", "#991b1b"), unsafe_allow_html=True)
-    c4.markdown(kpi("High Risk", f"{(df_s['Risk_Level']=='High').sum()}", "#9a3412"), unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    c1,c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="section-title">High-Risk by Region</div>', unsafe_allow_html=True)
-        g = high.groupby("Region").size().reset_index(name="Count")
-        fig = px.bar(g.sort_values("Count",ascending=False), x="Region", y="Count",
-                     color="Count", color_continuous_scale="Reds")
-        fig.update_layout(height=350, margin=dict(t=20,b=10), coloraxis_showscale=False)
-        st.plotly_chart(fig, use_container_width=True)
-    with c2:
-        st.markdown('<div class="section-title">High-Risk by Segment</div>', unsafe_allow_html=True)
-        g = high.groupby("Customer_Segment").size().reset_index(name="Count")
-        fig = px.pie(g, names="Customer_Segment", values="Count", hole=0.5,
-                     color_discrete_sequence=px.colors.sequential.Reds_r)
-        fig.update_layout(height=350, margin=dict(t=20,b=10))
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown('<div class="section-title">📣 Recommended Campaigns</div>', unsafe_allow_html=True)
-    campaigns = [
-        ("Month-to-month lock-in campaign", "High", "Target contract upgrades with 15% annual discount"),
-        ("Auto-pay enrollment drive", "High", "5% discount for auto-pay enrollment"),
-        ("Satisfaction recovery program", "Critical", "CSM outreach for satisfaction ≤4"),
-        ("Complaint escalation hotline", "Critical", "Dedicated resolution team"),
-        ("Re-engagement for inactive", "Medium", "Personalized feature education"),
-        ("Referral rewards program", "Medium", "Incentivize referrals from loyal base"),
-    ]
-    c1,c2 = st.columns(2)
-    for i,(name,prio,desc) in enumerate(campaigns):
-        cls = "critical" if prio=="Critical" else "high" if prio=="High" else "medium"
-        with (c1 if i%2==0 else c2):
-            st.markdown(f'<div class="rec-card"><b>{name}</b> '
-                        f'<span class="risk-{cls}">{prio}</span>'
-                        f'<br><span style="color:#6b7280;">{desc}</span></div>',
-                        unsafe_allow_html=True)
-
-    st.markdown('<div class="section-title">📋 High-Risk Customer List</div>', unsafe_allow_html=True)
-    cols = ["Customer_ID","Region","Customer_Segment","Contract_Type","Tenure_Months",
-            "Monthly_Charges","Satisfaction_Score","NPS_Score","Risk_Level","Churn_Probability"]
-    st.dataframe(high[cols].sort_values("Churn_Probability", ascending=False).head(100),
-                 use_container_width=True, height=420)
-
-    csv = high[cols].to_csv(index=False).encode()
-    st.download_button("⬇️ Download High-Risk Customer List", csv,
-                       "high_risk_customers.csv", "text/csv", use_container_width=True)
-
-    st.markdown('<div class="section-title">💡 Evidence-Based Retention Recommendations</div>', unsafe_allow_html=True)
-    recs = [
-        ("Month-to-month → offer annual contract",
-         "Month-to-month contracts show 2-3x higher churn than annual contracts."),
-        ("Auto-pay incentive",
-         "Auto-pay customers churn significantly less — offer 5% discount."),
-        ("Satisfaction recovery for score ≤4",
-         "Low-satisfaction customers churn at very high rates — priority CSM outreach."),
-        ("Complaint escalation & resolution SLA",
-         "Customers with ≥2 complaints have dramatically higher churn risk."),
-        ("Targeted discounts for high-charge customers",
-         "High monthly charges correlate with churn — offer right-sized plans."),
-    ]
-    for t,d in recs:
-        st.markdown(f'<div class="rec-card"><b>✅ {t}</b><br>'
-                    f'<span style="color:#6b7280;">{d}</span></div>', unsafe_allow_html=True)
+    r2[1].markdown(kpi("Avg Monthly Charge", f"${df['Monthly_Charges'].mean():.2f}", "#667eea"), unsafe_allow
